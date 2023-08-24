@@ -185,10 +185,10 @@ jobs:
           git config user.email support@monerod.org
           tar xf ../centos7_build/centos7_build.tar.gz
           mv xmrig xmrig-md/xmrig
-          mv config.json mo_xmrig/config_global.json
+          mv config.json xmrig-md/config_global.json
           export VER=${GITHUB_REF:10}
           export VER=${VER//-/_}
-          tar -zcvf mo_xmrig-$VER.tar.gz xmrig-md
+          tar -zcvf xmrig-md-$VER.tar.gz xmrig-md
           git add xmrig-md-$VER.tar.gz xmrig-md/xmrig xmrig-md/config_global.json
           git commit -m "xmrig-md "${GITHUB_REF:10}" based release" xmrig-md-$VER.tar.gz
           git push
