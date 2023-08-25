@@ -1,7 +1,8 @@
 on:
-  push:
-    tags:
-    - 'v*'
+  workflow_dispatch:
+  #push:
+    #tags:
+    #- 'v*'
 
 name: Create release and build artifacts
 
