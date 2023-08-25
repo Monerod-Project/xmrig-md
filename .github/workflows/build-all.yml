@@ -23,7 +23,7 @@ jobs:
           copy bin\WinRing0\WinRing0x64.sys .
           7z a -tzip -mx windows_build.zip xmrig.exe config.json WinRing0x64.sys
       - name: Upload Windows build artifacts
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2
         with:
           name: windows_build
           path: windows_build.zip
@@ -45,7 +45,7 @@ jobs:
           cp src/config.json .
           tar cfz ubuntu_build.tar.gz xmrig config.json
       - name: Upload Ubuntu build artifacts
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2
         with:
           name: ubuntu_build
           path: ubuntu_build.tar.gz
@@ -74,7 +74,7 @@ jobs:
           cp src/config.json .
           tar cfz macos_build.tar.gz xmrig config.json
       - name: Upload MacOS build artifacts
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2
         with:
           name: macos_build
           path: macos_build.tar.gz
@@ -90,9 +90,7 @@ jobs:
           yum install -y devtoolset-9
           yum install -y wget git cmake3 automake libtool autoconf libstdc++-static glibc-static
       - name: Checkout code
-        run: |
-          git clone https://github.com/Monerod-Project/xmrig-md.git .
-          git checkout master
+        uses: actions/checkout@master
       - name: Build project on CentOS 7
         run: |
           source /opt/rh/devtoolset-9/enable
@@ -104,7 +102,7 @@ jobs:
           cp src/config.json .
           tar cfz centos7_build.tar.gz xmrig config.json
       - name: Upload CentOS 7 build artifacts
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2
         with:
           name: centos7_build
           path: centos7_build.tar.gz
