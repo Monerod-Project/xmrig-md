@@ -25,7 +25,6 @@ jobs:
         run: echo ${{ steps.version.outputs.version }}
       - name: Build project on Windows
         run: |
-          PowerShell "(Get-Content src/donate.h) -replace 'DonateLevel = 1','DonateLevel = 0' | Set-Content src/donate.h"
           cmake . -G "MinGW Makefiles" -DXMRIG_DEPS=xmrig-deps\gcc\x64
           make -j2
           copy src\config.json .
@@ -54,7 +53,6 @@ jobs:
       - name: Build project on Ubuntu
         run: |
           echo "XMRIG_VERSION="`cat src/version.h | grep -Eo "APP_VERSION\s+\"(.+?)\"" | awk -F "\"" '{print $2}'` >> $GITHUB_ENV
-          sed -i 's/DonateLevel = 1/DonateLevel = 0/g' src/donate.h
           cmake .
           make -j$(nproc)
           cp src/config.json .
@@ -80,17 +78,13 @@ jobs:
 
       - name: Build hwloc on MacOS
         run: |
-          curl -O https://download.open-mpi.org/release/hwloc/v2.1/hwloc-2.1.0.tar.bz2
-          tar xjf hwloc-2.1.0.tar.bz2
-          cd hwloc-2.1.0
-          ./configure --disable-shared --enable-static --disable-io --disable-libxml2
-          make -j$(sysctl -n hw.logicalcpu)
+          brew install cmake wget automake libtool autoconf
           cd ..
       - name: Build project on MacOS
         run: |
-          sed -i '' 's/DonateLevel = 1/DonateLevel = 0/g' src/donate.h
           echo "XMRIG_VERSION="`cat src/version.h | grep -Eo "APP_VERSION\s+\"(.+?)\"" | awk -F "\"" '{print $2}'` >> $GITHUB_ENV
-          cmake . -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a
+          ./build.hwloc.sh && cd ../build
+          cmake .. -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) -DHWLOC_INCLUDE_DIR=../scripts/deps/include -DHWLOC_LIBRARY=../scripts/deps/lib/libhwloc.a
           make -j$(sysctl -n hw.logicalcpu)
           cp src/config.json .
           tar cfz macos_build.tar.gz xmrig config.json
