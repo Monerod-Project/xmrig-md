@@ -16,7 +16,7 @@ jobs:
         run:  git clone https://github.com/xmrig/xmrig-deps.git
       - name: Build project on Windows
         run: |
-          cmake . -G "MinGW Makefiles" -DXMRIG_DEPS=xmrig-deps\gcc\x64
+          cmake . -G "MinGW Makefiles" -DXMRIG_DEPS=xmrig-deps\gcc\x64 -DWITH_CN_LITE=OFF -DWITH_CN_HEAVY=OFF -DWITH_CN_PICO=OFF -DWITH_CN_FEMTO=OFF -DWITH_ARGON2=OFF -DWITH_KAWPOW=OFF -DWITH_GHOSTRIDER=OFF
           make -j2
           copy src\config.json .
           copy bin\WinRing0\WinRing0x64.sys .
@@ -39,7 +39,7 @@ jobs:
         uses: actions/checkout@master
       - name: Build project on Ubuntu
         run: |
-          cmake .
+          cmake . -DWITH_CN_LITE=OFF -DWITH_CN_HEAVY=OFF -DWITH_CN_PICO=OFF -DWITH_CN_FEMTO=OFF -DWITH_ARGON2=OFF -DWITH_KAWPOW=OFF -DWITH_GHOSTRIDER=OFF
           make -j$(nproc)
           cp src/config.json .
           tar cfz ubuntu_build.tar.gz xmrig config.json
@@ -68,7 +68,7 @@ jobs:
           cd ..
       - name: Build project on MacOS
         run: |
-          cmake . -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a
+          cmake . -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a -DWITH_CN_LITE=OFF -DWITH_CN_HEAVY=OFF -DWITH_CN_PICO=OFF -DWITH_CN_FEMTO=OFF -DWITH_ARGON2=OFF -DWITH_KAWPOW=OFF -DWITH_GHOSTRIDER=OFF
           make -j$(sysctl -n hw.logicalcpu)
           cp src/config.json .
           tar cfz macos_build.tar.gz xmrig config.json
@@ -98,7 +98,7 @@ jobs:
           cd scripts
           ./build_deps.sh
           cd ..
-          cmake3 . -DXMRIG_DEPS=scripts/deps
+          cmake3 . -DXMRIG_DEPS=scripts/deps -DWITH_CN_LITE=OFF -DWITH_CN_HEAVY=OFF -DWITH_CN_PICO=OFF -DWITH_CN_FEMTO=OFF -DWITH_ARGON2=OFF -DWITH_KAWPOW=OFF -DWITH_GHOSTRIDER=OFF
           make -j$(nproc)
           cp src/config.json .
           tar cfz centos7_build.tar.gz xmrig config.json

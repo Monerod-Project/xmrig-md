@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.1)
 project(xmrig)
 
 option(WITH_HWLOC           "Enable hwloc support" ON)
@@ -34,7 +34,8 @@ option(WITH_SECURE_JIT      "Enable secure access to JIT memory" OFF)
 option(WITH_DMI             "Enable DMI/SMBIOS reader" ON)
 
 option(BUILD_STATIC         "Build static binary" OFF)
-option(ARM_TARGET           "Force use specific ARM target 8 or 7" 0)
+option(ARM_V8               "Force ARMv8 (64 bit) architecture, use with caution if automatic detection fails, but you sure it may work" OFF)
+option(ARM_V7               "Force ARMv7 (32 bit) architecture, use with caution if automatic detection fails, but you sure it may work" OFF)
 option(HWLOC_DEBUG          "Enable hwloc debug helpers and log" OFF)
 
 

@@ -1,6 +1,6 @@
 /* XMRig
- * Copyright (c) 2018-2021 SChernykh   <https://github.com/SChernykh>
- * Copyright (c) 2016-2021 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright (c) 2018-2023 SChernykh   <https://github.com/SChernykh>
+ * Copyright (c) 2016-2023 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -20,11 +20,6 @@
 #include "3rdparty/rapidjson/document.h"
 #include "backend/cpu/Cpu.h"
 #include "base/io/json/Json.h"
-
-
-#ifdef XMRIG_FEATURE_HWLOC
-#   include "backend/cpu/platform/HwlocCpuInfo.h"
-#endif
 
 
 #include <array>
@@ -63,7 +58,7 @@ constexpr size_t kMsrArraySize = 6;
 static const std::array<MsrItems, kMsrArraySize> msrPresets = {
     MsrItems(),
     MsrItems{{ 0xC0011020, 0ULL }, { 0xC0011021, 0x40ULL, ~0x20ULL }, { 0xC0011022, 0x1510000ULL }, { 0xC001102b, 0x2000cc16ULL }},
-    MsrItems{{ 0xC0011020, 0x0004480000000000ULL }, { 0xC0011021, 0x001c000200000040ULL, ~0x20ULL }, { 0xC0011022, 0xc000000401500000ULL }, { 0xC001102b, 0x2000cc14ULL }},
+    MsrItems{{ 0xC0011020, 0x0004480000000000ULL }, { 0xC0011021, 0x001c000200000040ULL, ~0x20ULL }, { 0xC0011022, 0xc000000401570000ULL }, { 0xC001102b, 0x2000cc10ULL }},
     MsrItems{{ 0xC0011020, 0x0004400000000000ULL }, { 0xC0011021, 0x0004000000000040ULL, ~0x20ULL }, { 0xC0011022, 0x8680000401570000ULL }, { 0xC001102b, 0x2040cc10ULL }},
     MsrItems{{ 0x1a4, 0xf }},
     MsrItems()
@@ -190,7 +185,7 @@ std::vector<uint32_t> xmrig::RxConfig::nodeset() const
         return m_nodeset;
     }
 
-    return (m_numa && Cpu::info()->nodes() > 1) ? static_cast<HwlocCpuInfo *>(Cpu::info())->nodeset() : std::vector<uint32_t>();
+    return (m_numa && Cpu::info()->nodes() > 1) ? Cpu::info()->nodeset() : std::vector<uint32_t>();
 }
 #endif
 
@@ -256,10 +251,12 @@ void xmrig::RxConfig::readMSR(const rapidjson::Value &value)
         return;
     }
 
-    if (value.IsInt() && Cpu::info()->vendor() == ICpuInfo::VENDOR_INTEL) {
+    if (value.IsInt()) {
         const int i = std::min(value.GetInt(), 15);
         if (i >= 0) {
-            m_msrPreset.emplace_back(0x1a4, i);
+            if (Cpu::info()->vendor() == ICpuInfo::VENDOR_INTEL) {
+                m_msrPreset.emplace_back(0x1a4, i);
+            }
         }
         else {
             m_wrmsr = false;

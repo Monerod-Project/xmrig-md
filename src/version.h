@@ -1,6 +1,6 @@
 /* XMRig
- * Copyright (c) 2018-2022 SChernykh   <https://github.com/SChernykh>
- * Copyright (c) 2016-2022 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright (c) 2018-2023 SChernykh   <https://github.com/SChernykh>
+ * Copyright (c) 2016-2023 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -22,15 +22,15 @@
 #define APP_ID        "xmrig-md"
 #define APP_NAME      "XMRig-md"
 #define APP_DESC      "XMRig-md miner"
-#define APP_VERSION   "6.18.1"
+#define APP_VERSION   "6.20.0"
 #define APP_DOMAIN    "xmrig.com"
 #define APP_SITE      "www.xmrig.com"
-#define APP_COPYRIGHT "Copyright (C) 2016-2022 xmrig.com"
+#define APP_COPYRIGHT "Copyright (C) 2016-2023 xmrig.com"
 #define APP_KIND      "miner"
 
 #define APP_VER_MAJOR  6
-#define APP_VER_MINOR  18
-#define APP_VER_PATCH  1
+#define APP_VER_MINOR  20
+#define APP_VER_PATCH  0
 
 #ifdef _MSC_VER
 #   if (_MSC_VER >= 1930)
@@ -52,4 +52,4 @@
 #   endif
 #endif
 
-#endif /* XMRIG_VERSION_H */
+#endif // XMRIG_VERSION_H
