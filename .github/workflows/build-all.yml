@@ -47,8 +47,8 @@ jobs:
       - name: Upload Ubuntu build artifacts
         uses: actions/upload-artifact@v1
         with:
-          name: linux_build
-          path: linux_build.tar.gz
+          name: ubuntu_build
+          path: ubuntu_build.tar.gz
 
   build_macos:
     name: Build MacOS artifacts
@@ -92,7 +92,7 @@ jobs:
       - name: Checkout code
         run: |
           git clone https://github.com/Monerod-Project/xmrig-md.git .
-          git checkout ${GITHUB_REF:10}
+          git checkout master
       - name: Build project on CentOS 7
         run: |
           source /opt/rh/devtoolset-9/enable
@@ -134,7 +134,7 @@ jobs:
       - name: Download Ubuntu build artifacts
         uses: actions/download-artifact@v1
         with:
-          name: linux_build
+          name: ubuntu_build
       - name: Download MacOS build artifacts
         uses: actions/download-artifact@v1
         with:
