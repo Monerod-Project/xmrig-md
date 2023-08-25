@@ -83,7 +83,7 @@ jobs:
       - name: Build project on MacOS
         run: |
           echo "XMRIG_VERSION="`cat src/version.h | grep -Eo "APP_VERSION\s+\"(.+?)\"" | awk -F "\"" '{print $2}'` >> $GITHUB_ENV
-          cd xmrig/scripts
+          cd scripts
           ./build.hwloc.sh && cd ../
           cmake .. -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) -DHWLOC_INCLUDE_DIR=../scripts/deps/include -DHWLOC_LIBRARY=../scripts/deps/lib/libhwloc.a
           make -j$(sysctl -n hw.logicalcpu)
