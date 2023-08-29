@@ -30,8 +30,6 @@ jobs:
         with:
           name: windows_build
           path: windows_build.zip
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     
   build_lin:
     name: Build Linux artifacts
