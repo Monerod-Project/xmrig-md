@@ -15,11 +15,6 @@ jobs:
           ref: master  
       - name: Checkout deps
         run:  git clone https://github.com/xmrig/xmrig-deps.git
-      - name: Get version
-        id: version
-        run: |
-          $ghetto=(Get-Content src\version.h | Select-String -Pattern 'APP_VERSION' -Encoding ASCII | ForEach-Object {($_ -split '\s+')[2]}).Trim('\"');
-          echo "::set-output name=version::$ghetto";
       - name: Check outputs
         shell: pwsh
         run: echo ${{ steps.version.outputs.version }}
@@ -52,7 +47,6 @@ jobs:
           ref: master
       - name: Build project on Ubuntu
         run: |
-          echo "XMRIG_VERSION="`cat src/version.h | grep -Eo "APP_VERSION\s+\"(.+?)\"" | awk -F "\"" '{print $2}'` >> $GITHUB_ENV
           cmake .
           make -j$(nproc)
           cp src/config.json .
@@ -87,8 +81,7 @@ jobs:
           cd ..
       - name: Build project on MacOS
         run: |
-          echo "XMRIG_VERSION="`cat src/version.h | grep -Eo "APP_VERSION\s+\"(.+?)\"" | awk -F "\"" '{print $2}'` >> $GITHUB_ENV
-          cmake .. -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) -DHWLOC_INCLUDE_DIR=hwloc-2.9.0/include -DHWLOC_LIBRARY=hwloc-2.9.0/hwloc/.libs/libhwloc.a
+          cmake . -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DHWLOC_INCLUDE_DIR=hwloc-2.9.0/include -DHWLOC_LIBRARY=hwloc-2.9.0/hwloc/.libs/libhwloc.a
           make -j$(sysctl -n hw.logicalcpu)
           cp src/config.json .
           tar cfz macos_build.tar.gz xmrig config.json
