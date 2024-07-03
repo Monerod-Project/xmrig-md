@@ -6,23 +6,12 @@ on:
 jobs:
   build_win:
     name: Build Windows artifacts
-    runs-on: windows-latest
+    runs-on: windows-2019
     steps:
-      - name: Checkout Repository master branch
-        uses: actions/checkout@v2
-        with:
-          repository: Monerod-Project/xmrig-md
-          ref: master  
+      - name: Checkout code
+        uses: actions/checkout@master
       - name: Checkout deps
         run:  git clone https://github.com/xmrig/xmrig-deps.git
-      - name: Get version
-        id: version
-        run: |
-          $ghetto=(Get-Content src\version.h | Select-String -Pattern 'APP_VERSION' -Encoding ASCII | ForEach-Object {($_ -split '\s+')[2]}).Trim('\"');
-          echo "::set-output name=version::$ghetto";
-      - name: Check outputs
-        shell: pwsh
-        run: echo ${{ steps.version.outputs.version }}
       - name: Build project on Windows
         run: |
           cmake . -G "MinGW Makefiles" -DXMRIG_DEPS=xmrig-deps\gcc\x64
@@ -35,36 +24,86 @@ jobs:
         with:
           name: windows_build
           path: windows_build.zip
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-    
+
   build_lin:
-    name: Build Linux artifacts
-    runs-on: ubuntu-20.04
+    name: Build Ubuntu artifacts
+    runs-on: ubuntu-22.04
     steps:
       - name: Prepare Ubuntu tools
         run: |
-          sudo apt-get install -y git build-essential cmake libuv1-dev libssl-dev libhwloc-dev ca-certificates
-      - name: Checkout Repository master branch
-        uses: actions/checkout@v2
-        with:
-          repository: Monerod-Project/xmrig-md
-          ref: master
+          sudo apt update
+          sudo apt install -y git build-essential cmake libuv1-dev libssl-dev libhwloc-dev
+      - name: Checkout code
+        uses: actions/checkout@master
       - name: Build project on Ubuntu
         run: |
-          cd scripts
-          ./build_deps.sh
-          cd ..
-          echo "XMRIG_VERSION="`cat src/version.h | grep -Eo "APP_VERSION\s+\"(.+?)\"" | awk -F "\"" '{print $2}'` >> $GITHUB_ENV
-          cmake . -DXMRIG_DEPS=scripts/deps
+          cmake .
           make -j$(nproc)
           cp src/config.json .
-          tar -zcvf ubuntu_build.tar.gz xmrig config.json
+          tar cfz ubuntu_build.tar.gz xmrig config.json
       - name: Upload Ubuntu build artifacts
         uses: actions/upload-artifact@v1
         with:
           name: ubuntu_build
           path: ubuntu_build.tar.gz
+
+  build_macos:
+    name: Build MacOS artifacts
+    runs-on: macos-latest
+    steps:
+      - name: Prepare MacOS tools
+        run: |
+          brew install cmake libuv openssl hwloc
+      - name: Checkout code
+        uses: actions/checkout@master
+      - name: Build hwloc on MacOS
+        run: |
+          curl -O https://download.open-mpi.org/release/hwloc/v2.1/hwloc-2.1.0.tar.bz2
+          tar xjf hwloc-2.1.0.tar.bz2
+          cd hwloc-2.1.0
+          ./configure --disable-shared --enable-static --disable-io --disable-libxml2
+          make -j$(sysctl -n hw.logicalcpu)
+          cd ..
+      - name: Build project on MacOS
+        run: |
+          cmake . -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a
+          make -j$(sysctl -n hw.logicalcpu)
+          cp src/config.json .
+          tar cfz macos_build.tar.gz xmrig config.json
+      - name: Upload MacOS build artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: macos_build
+          path: macos_build.tar.gz
+
+  build_macos_intel:
+    name: Build MacOS (Intel) artifacts
+    runs-on: macos-13
+    steps:
+      - name: Prepare MacOS tools
+        run: |
+          brew install cmake libuv openssl hwloc
+      - name: Checkout code
+        uses: actions/checkout@master
+      - name: Build hwloc on MacOS
+        run: |
+          curl -O https://download.open-mpi.org/release/hwloc/v2.1/hwloc-2.1.0.tar.bz2
+          tar xjf hwloc-2.1.0.tar.bz2
+          cd hwloc-2.1.0
+          ./configure --disable-shared --enable-static --disable-io --disable-libxml2
+          make -j$(sysctl -n hw.logicalcpu)
+          cd ..
+      - name: Build project on MacOS
+        run: |
+          cmake . -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a
+          make -j$(sysctl -n hw.logicalcpu)
+          cp src/config.json .
+          tar cfz macos_build_intel.tar.gz xmrig config.json
+      - name: Upload MacOS build artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: macos_build_intel
+          path: macos_build_intel.tar.gz
 
   build_lin_rh7:
     name: Build CentOS 7 artifacts
@@ -75,19 +114,17 @@ jobs:
         run: |
           yum install -y centos-release-scl epel-release
           yum install -y devtoolset-9
-          yum install -y wget git cmake3 automake libtool autoconf libstdc++-static glibc-static ca-certificates
-      - name: Checkout Repository master branch
-        uses: actions/checkout@v2
-        with:
-          repository: Monerod-Project/xmrig-md
-          ref: master
+          yum install -y wget git cmake3 automake libtool autoconf libstdc++-static glibc-static perl-IPC-Cmd
+      - name: Checkout code
+        run: |
+          git clone https://github.com/MoneroOcean/xmrig.git .
+          git checkout ${GITHUB_REF:10}
       - name: Build project on CentOS 7
         run: |
           source /opt/rh/devtoolset-9/enable
           cd scripts
           ./build_deps.sh
           cd ..
-          echo "XMRIG_VERSION="`cat src/version.h | grep -Eo "APP_VERSION\s+\"(.+?)\"" | awk -F "\"" '{print $2}'` >> $GITHUB_ENV
           cmake3 . -DXMRIG_DEPS=scripts/deps
           make -j$(nproc)
           cp src/config.json .
@@ -97,38 +134,3 @@ jobs:
         with:
           name: centos7_build
           path: centos7_build.tar.gz
-    
-  build_macos:
-    name: Build MacOS artifacts
-    runs-on: macos-latest
-    steps:
-      - name: Prepare MacOS tools
-        run: |
-          brew install cmake libuv openssl hwloc
-      - name: Checkout Repository master branch
-        uses: actions/checkout@v2
-        with:
-          repository: Monerod-Project/xmrig-md
-          ref: master
-
-      - name: Build hwloc on MacOS
-        run: |
-          brew install cmake libuv openssl hwloc
-          curl -O https://download.open-mpi.org/release/hwloc/v2.9/hwloc-2.9.0.tar.bz2
-          tar xjf hwloc-2.9.0.tar.bz2
-          cd hwloc-2.9.0
-          ./configure --disable-shared --enable-static --disable-io --disable-libxml2
-          make -j$(sysctl -n hw.logicalcpu)
-          cd ..
-      - name: Build project on MacOS
-        run: |
-          echo "XMRIG_VERSION="`cat src/version.h | grep -Eo "APP_VERSION\s+\"(.+?)\"" | awk -F "\"" '{print $2}'` >> $GITHUB_ENV
-          cmake . -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DHWLOC_INCLUDE_DIR=hwloc-2.9.0/include -DHWLOC_LIBRARY=hwloc-2.9.0/hwloc/.libs/libhwloc.a
-          make -j$(sysctl -n hw.logicalcpu)
-          cp src/config.json .
-          tar cfz macos_build.tar.gz xmrig config.json
-      - name: Upload MacOS build artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: macos_build
-          path: macos_build.tar.gz
