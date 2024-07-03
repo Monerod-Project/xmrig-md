@@ -1,3 +1,27 @@
+# v6.21.3
+- [#3462](https://github.com/xmrig/xmrig/pull/3462) RandomX: correct memcpy size for JIT initialization.
+
+# v6.21.2
+- The dependencies of all prebuilt releases have been updated. Support for old Ubuntu releases has been dropped.
+- [#2800](https://github.com/xmrig/xmrig/issues/2800) Fixed donation with GhostRider algorithm for builds without KawPow algorithm.
+- [#3436](https://github.com/xmrig/xmrig/pull/3436) Fixed, the file log writer was not thread-safe.
+- [#3450](https://github.com/xmrig/xmrig/pull/3450) Fixed RandomX crash when compiled with fortify_source.
+
+# v6.21.1
+- [#3391](https://github.com/xmrig/xmrig/pull/3391) Added support for townforge (monero fork using randomx).
+- [#3399](https://github.com/xmrig/xmrig/pull/3399) Fixed Zephyr mining (OpenCL).
+- [#3420](https://github.com/xmrig/xmrig/pull/3420) Fixed segfault in HTTP API rebind.
+
+# v6.21.0
+- [#3302](https://github.com/xmrig/xmrig/pull/3302) [#3312](https://github.com/xmrig/xmrig/pull/3312) Enabled keepalive for Windows (>= Vista).
+- [#3320](https://github.com/xmrig/xmrig/pull/3320) Added "built for OS/architecture/bits" to "ABOUT".
+- [#3339](https://github.com/xmrig/xmrig/pull/3339) Added SNI option for TLS connections.
+- [#3342](https://github.com/xmrig/xmrig/pull/3342) Update `cn_main_loop.asm`.
+- [#3346](https://github.com/xmrig/xmrig/pull/3346) ARM64 JIT: don't use `x18` register.
+- [#3348](https://github.com/xmrig/xmrig/pull/3348) Update to latest `sse2neon.h`.
+- [#3356](https://github.com/xmrig/xmrig/pull/3356) Updated pricing record size for **Zephyr** solo mining.
+- [#3358](https://github.com/xmrig/xmrig/pull/3358) **Zephyr** solo mining: handle multiple outputs.
+
 # v6.20.0
 - Added new ARM CPU names.
 - [#2394](https://github.com/xmrig/xmrig/pull/2394) Added new CMake options `ARM_V8` and `ARM_V7`.
