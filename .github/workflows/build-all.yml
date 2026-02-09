@@ -30,14 +30,17 @@ jobs:
 
       - name: Patch source for Windows
         run: |
-          # 1. Fix SIGPIPE (not available on Windows)
+          # 1. SIGPIPE does not exist on Windows
           sed -i "s/signal(SIGPIPE, SIG_IGN);/\\#ifdef SIGPIPE\\n    signal(SIGPIPE, SIG_IGN);\\n\\#endif/" src/base/io/Signals.cpp
 
-          # 2. Fix mkdir(path, mode) → mkdir(path)
+          # 2. Windows mkdir() takes only one argument
           sed -i "s/mkdir(\(.*\), 0[0-7]*);/mkdir(\1);/" src/backend/opencl/OclCache_unix.cpp
 
-          # 3. Fix missing <sys/resource.h> on Windows
+          # 3. <sys/resource.h> does not exist on Windows
           sed -i "s|#include <sys/resource.h>|#ifndef _WIN32\\n#include <sys/resource.h>\\n#endif|" src/base/kernel/Platform_unix.cpp
+
+          # 4. setpriority / PRIO_PROCESS are not available on Windows
+          sed -i "s/setpriority(PRIO_PROCESS, 0, prio);/#ifndef _WIN32\\n    setpriority(PRIO_PROCESS, 0, prio);\\n#endif/" src/base/kernel/Platform_unix.cpp
 
       - name: Build project on Windows
         run: |
