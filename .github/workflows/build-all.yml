@@ -1,4 +1,4 @@
-name: Build XMRig (All Platforms)
+name: Build XMRig (Artifacts Only)
 
 on:
   workflow_dispatch:
@@ -7,10 +7,10 @@ on:
       - "v*"
 
 jobs:
-  # =========================
-  # WINDOWS (FAST, MSYS2)
-  # =========================
-  windows:
+  # ============================================================
+  # WINDOWS (MSYS2 + xmrig-deps — THIS IS THE IMPORTANT ONE)
+  # ============================================================
+  build_windows:
     name: Windows x64
     runs-on: windows-2022
     defaults:
@@ -18,116 +18,110 @@ jobs:
         shell: msys2 {0}
 
     steps:
-      - uses: actions/checkout@v4
-
       - name: Setup MSYS2 (UCRT64)
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
           update: true
-          install: >-
+          install: >
             base-devel
             git
             cmake
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-libuv
-            mingw-w64-ucrt-x86_64-openssl
-            mingw-w64-ucrt-x86_64-hwloc
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-7zip
 
-      - name: Build
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Checkout xmrig-deps
         run: |
-          mkdir build
-          cd build
-          cmake .. \
+          git clone https://github.com/xmrig/xmrig-deps.git
+
+      - name: Build XMRig (Windows)
+        run: |
+          cmake . \
             -G "Unix Makefiles" \
+            -DXMRIG_DEPS=./xmrig-deps/gcc/x64 \
             -DWITH_CN_GPU=OFF
-          make -j$(nproc)
+          make -j2
 
-      - name: Package
-        run: |
-          mkdir dist
-          cp build/xmrig.exe dist/
-          cp src/config.json dist/ || true
-          cd dist
-          7z a xmrig-windows-x64.zip *
+          cp src/config.json .
+          if [ -f ./bin/WinRing0/WinRing0x64.sys ]; then
+            cp ./bin/WinRing0/WinRing0x64.sys .
+          fi
+
+          7z a windows_build.zip xmrig.exe config.json WinRing0x64.sys
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: xmrig-windows-x64
-          path: dist/xmrig-windows-x64.zip
+          name: windows_build
+          path: windows_build.zip
 
-  # =========================
-  # LINUX
-  # =========================
-  linux:
+  # ============================================================
+  # LINUX (SYSTEM LIBS — SAME AS REFERENCE)
+  # ============================================================
+  build_linux:
     name: Linux x64
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
-
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential cmake \
-            libuv1-dev libssl-dev libhwloc-dev
+          sudo apt update
+          sudo apt install -y \
+            git \
+            build-essential \
+            cmake \
+            libuv1-dev \
+            libssl-dev \
+            libhwloc-dev
 
-      - name: Build
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Build XMRig (Linux)
         run: |
-          mkdir build
-          cd build
-          cmake .. -DWITH_CN_GPU=OFF
+          cmake . -DWITH_CN_GPU=OFF
           make -j$(nproc)
 
-      - name: Package
-        run: |
-          mkdir dist
-          cp build/xmrig dist/
-          cp src/config.json dist/ || true
-          tar -czf xmrig-linux-x64.tar.gz -C dist .
+          cp src/config.json .
+          tar czf linux_build.tar.gz xmrig config.json
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: xmrig-linux-x64
-          path: xmrig-linux-x64.tar.gz
+          name: linux_build
+          path: linux_build.tar.gz
 
-  # =========================
-  # MACOS (APPLE SILICON)
-  # =========================
-  macos:
+  # ============================================================
+  # MACOS (APPLE SILICON — SIMPLIFIED, NO STATIC HWLOC)
+  # ============================================================
+  build_macos:
     name: macOS ARM64
     runs-on: macos-14
 
     steps:
-      - uses: actions/checkout@v4
-
       - name: Install dependencies
         run: |
           brew update
           brew install cmake libuv openssl@3 hwloc
 
-      - name: Build
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Build XMRig (macOS)
         run: |
-          mkdir build
-          cd build
-          cmake .. \
+          cmake . \
             -DWITH_CN_GPU=OFF \
             -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
           make -j$(sysctl -n hw.logicalcpu)
 
-      - name: Package
-        run: |
-          mkdir dist
-          cp build/xmrig dist/
-          cp src/config.json dist/ || true
-          tar -czf xmrig-macos-arm64.tar.gz -C dist .
+          cp src/config.json .
+          tar czf macos_build.tar.gz xmrig config.json
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: xmrig-macos-arm64
-          path: xmrig-macos-arm64.tar.gz
+          name: macos_build
+          path: macos_build.tar.gz
