@@ -1,6 +1,6 @@
-# To be used only on Monerod.org, donation instead is used for Boost Hashrate for all active miners.
+# XMRig-md
 
-# XMRig
+## To be used only on Monerod.org, donation instead is used for Boost Hashrate for all active miners.
 
 [![Github All Releases](https://img.shields.io/github/downloads/xmrig/xmrig/total.svg)](https://github.com/xmrig/xmrig/releases)
 [![GitHub release](https://img.shields.io/github/release/xmrig/xmrig/all.svg)](https://github.com/xmrig/xmrig/releases)
@@ -12,7 +12,7 @@
 XMRig is a high performance, open source, cross platform RandomX, KawPow, CryptoNight and [GhostRider](https://github.com/xmrig/xmrig/tree/master/src/crypto/ghostrider#readme) unified CPU/GPU miner and [RandomX benchmark](https://xmrig.com/benchmark). Official binaries are available for Windows, Linux, macOS and FreeBSD.
 
 ## Mining backends
-- **CPU** (x86/x64/ARMv7/ARMv8)
+- **CPU** (x86/x64/ARMv7/ARMv8/RISC-V)
 - **OpenCL** for AMD GPUs.
 - **CUDA** for NVIDIA GPUs via external [CUDA plugin](https://github.com/xmrig/xmrig-cuda).
 
