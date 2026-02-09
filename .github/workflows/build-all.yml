@@ -1,27 +1,24 @@
 name: Build XMRig (Artifacts Only)
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
 
 jobs:
-  # ===========================
-  # WINDOWS BUILD
-  # ===========================
+  # ======================================
+  # WINDOWS BUILD (hwloc via xmrig-deps)
+  # ======================================
   build_windows:
-    name: Build Windows artifacts
+    name: Windows x64
     runs-on: windows-2022
     defaults:
       run:
         shell: msys2 {0}
 
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Setup MSYS2 + UCRT64
+      - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -30,10 +27,11 @@ jobs:
             base-devel
             git
             cmake
-            ninja
-            pkgconf
             mingw-w64-ucrt-x86_64-toolchain
             mingw-w64-ucrt-x86_64-7zip
+
+      - name: Checkout source
+        uses: actions/checkout@v4
 
       - name: Checkout xmrig-deps
         run: git clone https://github.com/xmrig/xmrig-deps.git
@@ -41,17 +39,16 @@ jobs:
       - name: Configure Windows build
         run: |
           cmake -S . -B build ^
-            -G Ninja ^
+            -G "Unix Makefiles" ^
             -DXMRIG_DEPS=./xmrig-deps/gcc/x64 ^
             -DWITH_CN_GPU=OFF ^
-            -DCMAKE_DISABLE_FIND_PACKAGE_Signals=TRUE ^
             -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
+      - name: Build Windows
         run: |
           cmake --build build --config Release
 
-      - name: Package
+      - name: Package Windows
         run: |
           mkdir dist
           cp build/xmrig.exe dist/
@@ -62,17 +59,17 @@ jobs:
           cd dist
           7z a xmrig-windows-x64.zip *
 
-      - name: Upload artifact
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows_build
           path: dist/xmrig-windows-x64.zip
 
-  # ===========================
-  # LINUX BUILD
-  # ===========================
+  # ======================================
+  # LINUX BUILD (system hwloc)
+  # ======================================
   build_linux:
-    name: Build Linux artifacts
+    name: Linux x64
     runs-on: ubuntu-22.04
 
     steps:
@@ -87,30 +84,32 @@ jobs:
 
       - name: Configure Linux build
         run: |
-          cmake -S . -B build -DWITH_CN_GPU=OFF
+          cmake -S . -B build \
+            -DWITH_CN_GPU=OFF \
+            -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
+      - name: Build Linux
         run: |
           cmake --build build -j$(nproc)
 
-      - name: Package
+      - name: Package Linux
         run: |
           mkdir dist
           cp build/xmrig dist/
           cp src/config.json dist/ || true
           tar czf xmrig-linux-x64.tar.gz -C dist .
 
-      - name: Upload artifact
+      - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux_build
           path: xmrig-linux-x64.tar.gz
 
-  # ===========================
-  # MACOS BUILD (ARM64 only)
-  # ===========================
+  # ======================================
+  # MACOS BUILD (ARM64, Homebrew hwloc)
+  # ======================================
   build_macos:
-    name: Build macOS ARM64
+    name: macOS ARM64
     runs-on: macos-14
 
     steps:
@@ -126,20 +125,21 @@ jobs:
         run: |
           cmake -S . -B build \
             -DWITH_CN_GPU=OFF \
-            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
+            -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
+      - name: Build macOS
         run: |
           cmake --build build -j$(sysctl -n hw.logicalcpu)
 
-      - name: Package
+      - name: Package macOS
         run: |
           mkdir dist
           cp build/xmrig dist/
           cp src/config.json dist/ || true
           tar czf xmrig-macos-arm64.tar.gz -C dist .
 
-      - name: Upload artifact
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos_build
