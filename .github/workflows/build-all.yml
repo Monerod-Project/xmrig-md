@@ -1,160 +1,106 @@
 name: Build XMRig (All Platforms)
 
 on:
-  workflow_dispatch: # Allows manual trigger button
+  workflow_dispatch:
   push:
     tags:
-      - 'v*' # Triggers on version tags
+      - "v*"
 
 jobs:
-  # ----------------------------------------------------------------------
-  # WINDOWS BUILD (Modern UCRT64)
-  # ----------------------------------------------------------------------
-  build_win:
-    name: Build Windows (x64)
-    runs-on: windows-2022
-    defaults:
-      run:
-        shell: msys2 {0}
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ---------------- WINDOWS ----------------
+          - os: windows-2022
+            name: windows-x64
+            cmake_args: -DWITH_CN_GPU=OFF
+            artifact: xmrig.exe
+
+          # ---------------- LINUX ----------------
+          - os: ubuntu-22.04
+            name: linux-x64
+            cmake_args: -DWITH_CN_GPU=OFF
+            artifact: xmrig
+
+          # ---------------- MACOS INTEL ----------------
+          - os: macos-13
+            name: macos-intel
+            cmake_args: -DWITH_CN_GPU=OFF
+            artifact: xmrig
+
+          # ---------------- MACOS ARM ----------------
+          - os: macos-14
+            name: macos-arm64
+            cmake_args: -DWITH_CN_GPU=OFF
+            artifact: xmrig
+
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            base-devel
-            git
-            cmake
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-libuv
-            mingw-w64-ucrt-x86_64-openssl
-            mingw-w64-ucrt-x86_64-hwloc
+      # ---------- WINDOWS DEPS ----------
+      - name: Install Windows dependencies
+        if: runner.os == 'Windows'
+        uses: microsoft/setup-msbuild@v2
 
-      - name: Build
+      - name: Install vcpkg deps (Windows)
+        if: runner.os == 'Windows'
         run: |
-          mkdir build
-          cd build
-          cmake .. -G "Unix Makefiles" -DWITH_CN_GPU=OFF -DBUILD_STATIC=ON
-          make -j$(nproc)
+          git clone https://github.com/microsoft/vcpkg.git
+          .\vcpkg\bootstrap-vcpkg.bat
+          .\vcpkg\vcpkg install libuv openssl hwloc
+        shell: powershell
 
-      - name: Package
-        run: |
-          cp src/config.json build/config.json
-          # Check for WinRing0 (may not exist in all forks, copy if present)
-          if [ -f "src/WinRing0/WinRing0x64.sys" ]; then
-            cp src/WinRing0/WinRing0x64.sys build/WinRing0x64.sys
-          fi
-          cd build
-          7z a -tzip windows_build.zip xmrig.exe config.json *.sys
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows_build
-          path: build/windows_build.zip
-
-  # ----------------------------------------------------------------------
-  # LINUX STATIC BUILD (Works on Ubuntu, Debian, CentOS, etc.)
-  # ----------------------------------------------------------------------
-  build_linux_static:
-    name: Build Linux (Static x64)
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Dependencies
+      # ---------- LINUX DEPS ----------
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y git build-essential cmake libuv1-dev libssl-dev libhwloc-dev automake libtool autoconf
+          sudo apt-get install -y \
+            build-essential cmake \
+            libuv1-dev libssl-dev libhwloc-dev
+
+      # ---------- MACOS DEPS ----------
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install cmake libuv openssl@3 hwloc
+
+      # ---------- BUILD ----------
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            ${{ matrix.cmake_args }} \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3 || echo "")
+        shell: bash
 
       - name: Build
         run: |
-          mkdir build
-          cd build
-          # -DBUILD_STATIC=ON includes libs in the binary so it works on other distros
-          cmake .. -DBUILD_STATIC=ON -DWITH_CN_GPU=OFF
-          make -j$(nproc)
+          cmake --build build --config Release -j 4
 
+      # ---------- PACKAGE ----------
       - name: Package
         run: |
-          cd build
-          cp ../src/config.json .
-          tar -czvf linux_static_build.tar.gz xmrig config.json
+          mkdir dist
+          cp build/${{ matrix.artifact }} dist/
+          cp src/config.json dist/ || true
+          cd dist
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            7z a xmrig-${{ matrix.name }}.zip *
+          else
+            tar -czf xmrig-${{ matrix.name }}.tar.gz *
+          fi
+        shell: bash
 
-      - name: Upload Artifact
+      # ---------- UPLOAD ----------
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux_static_build
-          path: build/linux_static_build.tar.gz
-
-  # ----------------------------------------------------------------------
-  # MACOS ARM64 (Apple Silicon M1/M2/M3)
-  # ----------------------------------------------------------------------
-  build_macos_arm:
-    name: Build macOS (Apple Silicon)
-    runs-on: macos-14
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Dependencies
-        run: brew install cmake libuv openssl@3 hwloc
-
-      - name: Build
-        run: |
-          mkdir build
-          cd build
-          cmake .. -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
-          make -j$(sysctl -n hw.logicalcpu)
-
-      - name: Package
-        run: |
-          cd build
-          cp ../src/config.json .
-          tar -czvf macos_arm64_build.tar.gz xmrig config.json
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos_arm64_build
-          path: build/macos_arm64_build.tar.gz
-
-  # ----------------------------------------------------------------------
-  # MACOS INTEL (x64)
-  # ----------------------------------------------------------------------
-  build_macos_intel:
-    name: Build macOS (Intel)
-    runs-on: macos-13 
-    # NOTE: macos-13 is the LAST version to support Intel runners on GitHub. 
-    # Do not change to macos-latest or macos-15.
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Dependencies
-        run: brew install cmake libuv openssl@3 hwloc
-
-      - name: Build
-        run: |
-          mkdir build
-          cd build
-          cmake .. -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
-          make -j$(sysctl -n hw.logicalcpu)
-
-      - name: Package
-        run: |
-          cd build
-          cp ../src/config.json .
-          tar -czvf macos_intel_build.tar.gz xmrig config.json
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos_intel_build
-          path: build/macos_intel_build.tar.gz
+          name: xmrig-${{ matrix.name }}
+          path: dist/*
