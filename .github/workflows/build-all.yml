@@ -4,57 +4,56 @@ on:
 
 jobs:
   build_win:
-    name: Build Windows artifacts
+    name: Build Windows artifacts (official MSYS2 method)
     runs-on: windows-2025
     defaults:
       run:
         shell: msys2 {0}
+
     steps:
-      - name: Setup MSYS2 + UCRT64
+      - name: Setup MSYS2 (UCRT64)
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
           update: true
-          install: >
-            base-devel
-            mingw-w64-ucrt-x86_64-toolchain
-            mingw-w64-ucrt-x86_64-7zip
-            cmake
+
+      - name: Install build dependencies
+        run: |
+          pacman -S --noconfirm \
+            mingw-w64-ucrt-x86_64-gcc \
+            mingw-w64-ucrt-x86_64-cmake \
+            mingw-w64-ucrt-x86_64-make \
             git
 
-      - name: Checkout code
-        uses: actions/checkout@master
-
-      - name: Checkout deps
-        run: git clone https://github.com/xmrig/xmrig-deps.git
-
-      - name: Patch source for Windows
+      - name: Clone xmrig
         run: |
-          # 1. SIGPIPE does not exist on Windows
-          sed -i "s/signal(SIGPIPE, SIG_IGN);/\\#ifdef SIGPIPE\\n    signal(SIGPIPE, SIG_IGN);\\n\\#endif/" src/base/io/Signals.cpp
+          git clone https://github.com/xmrig/xmrig.git
 
-          # 2. Windows mkdir() takes only one argument
-          sed -i "s/mkdir(\(.*\), 0[0-7]*);/mkdir(\1);/" src/backend/opencl/OclCache_unix.cpp
-
-          # 3. <sys/resource.h> does not exist on Windows
-          sed -i "s|#include <sys/resource.h>|#ifndef _WIN32\\n#include <sys/resource.h>\\n#endif|" src/base/kernel/Platform_unix.cpp
-
-          # 4. setpriority / PRIO_PROCESS are not available on Windows
-          sed -i "s/setpriority(PRIO_PROCESS, 0, prio);/#ifndef _WIN32\\n    setpriority(PRIO_PROCESS, 0, prio);\\n#endif/" src/base/kernel/Platform_unix.cpp
-
-      - name: Build project on Windows
+      - name: Clone xmrig-deps
         run: |
-          cmake . -G "Unix Makefiles" -DXMRIG_DEPS=./xmrig-deps/gcc/x64
-          make -j2
-          cp ./src/config.json .
-          cp ./bin/WinRing0/WinRing0x64.sys .
-          7z a -tzip -mx windows_build.zip xmrig.exe config.json WinRing0x64.sys
+          git clone https://github.com/xmrig/xmrig-deps.git /c/xmrig-deps
+
+      - name: Build xmrig (official way)
+        run: |
+          mkdir -p xmrig/build
+          cd xmrig/build
+          /c/Program\ Files/CMake/bin/cmake.exe .. \
+            -G "Unix Makefiles" \
+            -DXMRIG_DEPS=c:/xmrig-deps/gcc/x64
+          make -j$(nproc)
+
+      - name: Package Windows artifact
+        run: |
+          cd xmrig/build
+          cp xmrig.exe ..
+          cd ..
+          tar -czf xmrig_windows.tar.gz xmrig.exe
 
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows_build
-          path: windows_build.zip
+          path: xmrig/xmrig_windows.tar.gz
 
   build_lin:
     name: Build Ubuntu artifacts
@@ -116,39 +115,3 @@ jobs:
         with:
           name: macos_build
           path: macos_build.tar.gz
-
-  build_macos_intel:
-    name: Build MacOS (Intel) artifacts
-    runs-on: macos-15
-    steps:
-      - name: Prepare MacOS tools
-        run: |
-          brew install cmake libuv openssl hwloc
-
-      - name: Checkout code
-        uses: actions/checkout@master
-
-      - name: Build hwloc on MacOS
-        run: |
-          curl -O https://download.open-mpi.org/release/hwloc/v2.1/hwloc-2.1.0.tar.bz2
-          tar xjf hwloc-2.1.0.tar.bz2
-          cd hwloc-2.1.0
-          ./configure --disable-shared --enable-static --disable-io --disable-libxml2
-          make -j$(sysctl -n hw.logicalcpu)
-          cd ..
-
-      - name: Build project on MacOS
-        run: |
-          cmake . \
-            -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl \
-            -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include \
-            -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a
-          make -j$(sysctl -n hw.logicalcpu)
-          cp src/config.json .
-          tar cfz macos_build_intel.tar.gz xmrig config.json
-
-      - name: Upload MacOS build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos_build_intel
-          path: macos_build_intel.tar.gz
