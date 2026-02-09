@@ -13,7 +13,7 @@ jobs:
       - name: Setup MSYS2 + UCRT64
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64           # selects the UCRT64 environment
+          msystem: UCRT64
           update: true
           install: >
             base-devel
@@ -21,17 +21,24 @@ jobs:
             mingw-w64-ucrt-x86_64-7zip
             cmake
             git
+
       - name: Checkout code
         uses: actions/checkout@master
+
       - name: Checkout deps
         run: git clone https://github.com/xmrig/xmrig-deps.git
+
       - name: Patch source for Windows
         run: |
-          # Patch SIGPIPE in Signals.cpp
+          # 1. Fix SIGPIPE (not available on Windows)
           sed -i "s/signal(SIGPIPE, SIG_IGN);/\\#ifdef SIGPIPE\\n    signal(SIGPIPE, SIG_IGN);\\n\\#endif/" src/base/io/Signals.cpp
-          
-          # Patch mkdir in OclCache_unix.cpp
+
+          # 2. Fix mkdir(path, mode) → mkdir(path)
           sed -i "s/mkdir(\(.*\), 0[0-7]*);/mkdir(\1);/" src/backend/opencl/OclCache_unix.cpp
+
+          # 3. Fix missing <sys/resource.h> on Windows
+          sed -i "s|#include <sys/resource.h>|#ifndef _WIN32\\n#include <sys/resource.h>\\n#endif|" src/base/kernel/Platform_unix.cpp
+
       - name: Build project on Windows
         run: |
           cmake . -G "Unix Makefiles" -DXMRIG_DEPS=./xmrig-deps/gcc/x64
@@ -39,6 +46,7 @@ jobs:
           cp ./src/config.json .
           cp ./bin/WinRing0/WinRing0x64.sys .
           7z a -tzip -mx windows_build.zip xmrig.exe config.json WinRing0x64.sys
+
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -53,14 +61,17 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y git build-essential cmake libuv1-dev libssl-dev libhwloc-dev
+
       - name: Checkout code
         uses: actions/checkout@master
+
       - name: Build project on Ubuntu
         run: |
           cmake .
           make -j$(nproc)
           cp src/config.json .
           tar cfz ubuntu_build.tar.gz xmrig config.json
+
       - name: Upload Ubuntu build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -74,8 +85,10 @@ jobs:
       - name: Prepare MacOS tools
         run: |
           brew install cmake libuv openssl hwloc
+
       - name: Checkout code
         uses: actions/checkout@master
+
       - name: Build hwloc on MacOS
         run: |
           curl -O https://download.open-mpi.org/release/hwloc/v2.1/hwloc-2.1.0.tar.bz2
@@ -84,12 +97,17 @@ jobs:
           ./configure --disable-shared --enable-static --disable-io --disable-libxml2
           make -j$(sysctl -n hw.logicalcpu)
           cd ..
+
       - name: Build project on MacOS
         run: |
-          cmake . -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a
+          cmake . \
+            -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl \
+            -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include \
+            -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a
           make -j$(sysctl -n hw.logicalcpu)
           cp src/config.json .
           tar cfz macos_build.tar.gz xmrig config.json
+
       - name: Upload MacOS build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -103,8 +121,10 @@ jobs:
       - name: Prepare MacOS tools
         run: |
           brew install cmake libuv openssl hwloc
+
       - name: Checkout code
         uses: actions/checkout@master
+
       - name: Build hwloc on MacOS
         run: |
           curl -O https://download.open-mpi.org/release/hwloc/v2.1/hwloc-2.1.0.tar.bz2
@@ -113,12 +133,17 @@ jobs:
           ./configure --disable-shared --enable-static --disable-io --disable-libxml2
           make -j$(sysctl -n hw.logicalcpu)
           cd ..
+
       - name: Build project on MacOS
         run: |
-          cmake . -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a
+          cmake . \
+            -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl \
+            -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include \
+            -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a
           make -j$(sysctl -n hw.logicalcpu)
           cp src/config.json .
           tar cfz macos_build_intel.tar.gz xmrig config.json
+
       - name: Upload MacOS build artifacts
         uses: actions/upload-artifact@v4
         with:
