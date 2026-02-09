@@ -5,7 +5,7 @@ on:
 
 jobs:
   # ----------------------------------------------------------------------
-  # WINDOWS BUILD (MinGW via MSYS2)
+  # WINDOWS BUILD (MinGW via MSYS2 Package Manager)
   # ----------------------------------------------------------------------
   build_win:
     name: Build Windows (x64)
@@ -14,18 +14,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Checkout dependencies
-        run: git clone https://github.com/xmrig/xmrig-deps.git xmrig-deps
-
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
+          # We install dependencies directly via pacman instead of cloning xmrig-deps
+          # This prevents "Could NOT find HWLOC" errors
           install: >-
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-make
             mingw-w64-x86_64-tools
+            mingw-w64-x86_64-hwloc
+            mingw-w64-x86_64-libuv
+            mingw-w64-x86_64-openssl
             git
           update: true
 
@@ -34,14 +36,15 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. -G "MinGW Makefiles" -DXMRIG_DEPS=../xmrig-deps/gcc/x64 -DWITH_CN_GPU=OFF -DBUILD_STATIC=ON
+          # Removed -DXMRIG_DEPS because we are using system (MSYS2) libs now
+          cmake .. -G "MinGW Makefiles" -DWITH_CN_GPU=OFF -DBUILD_STATIC=ON
           mingw32-make -j2
 
       - name: Package Windows
         shell: msys2 {0}
         run: |
           cp src/config.json build/config.json
-          # WinRing0 might not exist in source if not explicitly added, checking first
+          # Check for WinRing0 driver presence
           if [ -f "src/WinRing0/WinRing0x64.sys" ]; then
             cp src/WinRing0/WinRing0x64.sys build/WinRing0x64.sys
           fi
@@ -62,18 +65,28 @@ jobs:
     runs-on: ubuntu-latest
     container: centos:7
     steps:
-      - name: Fix CentOS 7 Repos (Point to Vault)
+      - name: Fix Base Repos (Vault)
         run: |
-          # Rewrite mirrors to vault.centos.org and use HTTP to avoid expired SSL root cert issues
+          # 1. Point Base repos to Vault
           sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
           sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-          # Clean metadata
+          yum clean all
+
+      - name: Install SCL Repo
+        run: |
+          # 2. Install SCL release package (creates new broken repo files)
+          yum install -y centos-release-scl epel-release
+
+      - name: Fix SCL Repos (Vault)
+        run: |
+          # 3. IMMEDIATELY Fix the new SCL repo files before using them
+          sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-SCLo*
+          sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-SCLo*
           yum clean all
 
       - name: Install Toolchain
         run: |
-          yum install -y centos-release-scl epel-release
-          # Fix EPEL if needed (sometimes EPEL mirrors fail on EOL too, but usually SCL works)
+          # 4. Now we can safely install the compiler
           yum install -y devtoolset-9 cmake3 git make automake libtool autoconf libstdc++-static glibc-static which
 
       - name: Checkout code
@@ -106,7 +119,7 @@ jobs:
           path: build/linux_static_build.tar.gz
 
   # ----------------------------------------------------------------------
-  # MACOS ARM64 (Apple Silicon / M1+)
+  # MACOS ARM64 (Apple Silicon)
   # ----------------------------------------------------------------------
   build_macos_arm64:
     name: Build macOS (Apple Silicon)
@@ -117,14 +130,12 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          # brew install returns 1 if already installed, so we allow it to 'fail' cleanly
           brew install cmake libuv openssl@3 hwloc || true
 
       - name: Build
         run: |
           mkdir build
           cd build
-          # Dynamically find OpenSSL location for Homebrew
           cmake .. -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
           make -j$(sysctl -n hw.logicalcpu)
 
@@ -141,12 +152,11 @@ jobs:
           path: build/macos_arm64_build.tar.gz
 
   # ----------------------------------------------------------------------
-  # MACOS INTEL (x64) - Legacy
+  # MACOS INTEL (x64)
   # ----------------------------------------------------------------------
   build_macos_intel:
     name: Build macOS (Intel)
-    runs-on: macos-12
-    # macos-12 is the fallback for Intel. macos-13 is phasing out/region locked.
+    runs-on: macos-13
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -159,7 +169,6 @@ jobs:
         run: |
           mkdir build
           cd build
-          # Intel Mac usually puts brew in /usr/local, but using --prefix is safer
           cmake .. -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
           make -j$(sysctl -n hw.logicalcpu)
 
