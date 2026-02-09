@@ -1,0 +1,137 @@
+name: Build XMRig (Advanced Mode)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.os_name }}
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # --- Windows (MSVC + Prebuilt v25.06.16 Deps) ---
+          - os_name: Windows
+            os: windows-latest
+            id: win
+            artifact_name: xmrig-windows-x64.exe
+            asset_path: build/Release/xmrig.exe
+
+          # --- macOS (Compile Deps from Source) ---
+          - os_name: macOS
+            os: macos-latest
+            id: mac
+            artifact_name: xmrig-macos
+            asset_path: build/xmrig
+
+          # --- CentOS 7 (Compile Deps from Source + EOL Fix) ---
+          - os_name: CentOS-7
+            os: ubuntu-latest
+            container: centos:7
+            id: centos
+            artifact_name: xmrig-linux-centos7
+            asset_path: build/xmrig
+
+    steps:
+      # 1. Checkout Code
+      - name: Checkout XMRig
+        uses: actions/checkout@v4
+
+      # ========================================================================
+      # WINDOWS STEPS
+      # ========================================================================
+      - name: (Windows) Download Deps v25.06.16
+        if: matrix.id == 'win'
+        shell: powershell
+        run: |
+          # Use GitHub CLI to download the exact version requested safely
+          gh release download v25.06.16 --repo xmrig/xmrig-deps --pattern "*-msvc2022-x64.zip" --output deps.zip
+          Expand-Archive -Path "deps.zip" -DestinationPath "C:\xmrig-deps"
+          
+          # Find the inner folder name (usually xmrig-deps-ver/msvc2022/x64)
+          $depsPath = Get-ChildItem -Path "C:\xmrig-deps" -Directory | Select-Object -First 1
+          echo "DEPS_ROOT=$($depsPath.FullName)\msvc2022\x64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: (Windows) Configure CMake
+        if: matrix.id == 'win'
+        run: |
+          mkdir build
+          cd build
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DXMRIG_DEPS=$env:DEPS_ROOT
+
+      - name: (Windows) Build
+        if: matrix.id == 'win'
+        run: |
+          cmake --build build --config Release
+
+      # ========================================================================
+      # MACOS STEPS
+      # ========================================================================
+      - name: (macOS) Install Build Tools
+        if: matrix.id == 'mac'
+        run: |
+          brew install cmake automake libtool autoconf
+
+      - name: (macOS) Build Dependencies (Advanced)
+        if: matrix.id == 'mac'
+        run: |
+          mkdir -p build
+          cd scripts
+          # This builds libuv, openssl, and hwloc statically
+          ./build_deps.sh
+
+      - name: (macOS) Configure & Build
+        if: matrix.id == 'mac'
+        run: |
+          cd build
+          cmake .. -DXMRIG_DEPS=../scripts/deps
+          make -j$(sysctl -n hw.logicalcpu)
+
+      # ========================================================================
+      # CENTOS 7 STEPS
+      # ========================================================================
+      - name: (CentOS 7) Fix EOL Repos & Install Tools
+        if: matrix.id == 'centos'
+        run: |
+          # CentOS 7 is EOL; swap mirrors to vault.centos.org to fix 'yum'
+          sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+          sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+          
+          yum install -y epel-release
+          yum install -y git make cmake3 gcc gcc-c++ libstdc++-static automake libtool autoconf which
+          ln -s /usr/bin/cmake3 /usr/bin/cmake
+
+      - name: (CentOS 7) Build Dependencies (Advanced)
+        if: matrix.id == 'centos'
+        run: |
+          mkdir -p build
+          cd scripts
+          # This builds static versions of all libraries
+          ./build_deps.sh
+
+      - name: (CentOS 7) Configure & Build
+        if: matrix.id == 'centos'
+        run: |
+          cd build
+          cmake3 .. -DXMRIG_DEPS=../scripts/deps
+          make -j$(nproc)
+
+      # ========================================================================
+      # ARTIFACT UPLOAD
+      # ========================================================================
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.asset_path }}
