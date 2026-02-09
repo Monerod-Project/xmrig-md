@@ -1,10 +1,11 @@
 name: XMRig-MD Build Artifacts (all)
+
 on:
   workflow_dispatch:
 
 jobs:
   build_win:
-    name: Build Windows artifacts (official MSYS2 method)
+    name: Build Windows artifacts (official MSYS2 UCRT64)
     runs-on: windows-2025
     defaults:
       run:
@@ -17,7 +18,7 @@ jobs:
           msystem: UCRT64
           update: true
 
-      - name: Install build dependencies
+      - name: Install MSYS2 build dependencies
         run: |
           pacman -S --noconfirm \
             mingw-w64-ucrt-x86_64-gcc \
@@ -33,11 +34,11 @@ jobs:
         run: |
           git clone https://github.com/xmrig/xmrig-deps.git /c/xmrig-deps
 
-      - name: Build xmrig (official way)
+      - name: Build xmrig (official MSYS2 way)
         run: |
           mkdir -p xmrig/build
           cd xmrig/build
-          /c/Program\ Files/CMake/bin/cmake.exe .. \
+          cmake .. \
             -G "Unix Makefiles" \
             -DXMRIG_DEPS=c:/xmrig-deps/gcc/x64
           make -j$(nproc)
@@ -45,73 +46,83 @@ jobs:
       - name: Package Windows artifact
         run: |
           cd xmrig/build
-          cp xmrig.exe ..
-          cd ..
           tar -czf xmrig_windows.tar.gz xmrig.exe
 
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows_build
-          path: xmrig/xmrig_windows.tar.gz
+          path: xmrig/build/xmrig_windows.tar.gz
 
   build_lin:
     name: Build Ubuntu artifacts
     runs-on: ubuntu-22.04
+
     steps:
       - name: Prepare Ubuntu tools
         run: |
           sudo apt update
-          sudo apt install -y git build-essential cmake libuv1-dev libssl-dev libhwloc-dev
+          sudo apt install -y \
+            git \
+            build-essential \
+            cmake \
+            libuv1-dev \
+            libssl-dev \
+            libhwloc-dev
 
-      - name: Checkout code
-        uses: actions/checkout@master
-
-      - name: Build project on Ubuntu
+      - name: Clone xmrig
         run: |
-          cmake .
-          make -j$(nproc)
-          cp src/config.json .
-          tar cfz ubuntu_build.tar.gz xmrig config.json
+          git clone https://github.com/xmrig/xmrig.git
 
-      - name: Upload Ubuntu build artifacts
+      - name: Build xmrig on Linux
+        run: |
+          cd xmrig
+          mkdir build
+          cd build
+          cmake ..
+          make -j$(nproc)
+
+      - name: Package Linux artifact
+        run: |
+          cd xmrig/build
+          tar -czf xmrig_linux.tar.gz xmrig
+
+      - name: Upload Linux build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ubuntu_build
-          path: ubuntu_build.tar.gz
+          name: linux_build
+          path: xmrig/build/xmrig_linux.tar.gz
 
   build_macos:
-    name: Build MacOS artifacts
+    name: Build macOS artifacts
     runs-on: macos-latest
+
     steps:
-      - name: Prepare MacOS tools
+      - name: Install macOS dependencies
         run: |
+          brew update
           brew install cmake libuv openssl hwloc
 
-      - name: Checkout code
-        uses: actions/checkout@master
-
-      - name: Build hwloc on MacOS
+      - name: Clone xmrig
         run: |
-          curl -O https://download.open-mpi.org/release/hwloc/v2.1/hwloc-2.1.0.tar.bz2
-          tar xjf hwloc-2.1.0.tar.bz2
-          cd hwloc-2.1.0
-          ./configure --disable-shared --enable-static --disable-io --disable-libxml2
-          make -j$(sysctl -n hw.logicalcpu)
-          cd ..
+          git clone https://github.com/xmrig/xmrig.git
 
-      - name: Build project on MacOS
+      - name: Build xmrig on macOS
         run: |
-          cmake . \
-            -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl \
-            -DHWLOC_INCLUDE_DIR=hwloc-2.1.0/include \
-            -DHWLOC_LIBRARY=hwloc-2.1.0/hwloc/.libs/libhwloc.a
+          cd xmrig
+          mkdir build
+          cd build
+          cmake .. \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl)
           make -j$(sysctl -n hw.logicalcpu)
-          cp src/config.json .
-          tar cfz macos_build.tar.gz xmrig config.json
 
-      - name: Upload MacOS build artifacts
+      - name: Package macOS artifact
+        run: |
+          cd xmrig/build
+          tar -czf xmrig_macos.tar.gz xmrig
+
+      - name: Upload macOS build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos_build
-          path: macos_build.tar.gz
+          path: xmrig/build/xmrig_macos.tar.gz
