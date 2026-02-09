@@ -25,10 +25,13 @@ jobs:
         uses: actions/checkout@master
       - name: Checkout deps
         run: git clone https://github.com/xmrig/xmrig-deps.git
-      - name: Patch Signals.cpp for Windows
+      - name: Patch source for Windows
         run: |
-          # Wrap SIGPIPE line so Windows build works
+          # Patch SIGPIPE in Signals.cpp
           sed -i "s/signal(SIGPIPE, SIG_IGN);/\\#ifdef SIGPIPE\\n    signal(SIGPIPE, SIG_IGN);\\n\\#endif/" src/base/io/Signals.cpp
+          
+          # Patch mkdir in OclCache_unix.cpp
+          sed -i "s/mkdir(\(.*\), 0[0-7]*);/mkdir(\1);/" src/backend/opencl/OclCache_unix.cpp
       - name: Build project on Windows
         run: |
           cmake . -G "Unix Makefiles" -DXMRIG_DEPS=./xmrig-deps/gcc/x64
